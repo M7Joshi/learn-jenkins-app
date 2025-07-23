@@ -39,7 +39,6 @@ pipeline {
                 docker {
                     image 'mrc.microsoft.com/playwrite:v1.39.0-jammy'
                     reuseNode true
-                    arg '-u root:root'
                 }
             }
             steps {
