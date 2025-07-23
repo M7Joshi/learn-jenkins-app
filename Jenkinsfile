@@ -54,7 +54,7 @@ pipeline {
 
     post {
         always {
-            junit '**/jest-results/junit.xml'
+            junit '**/jest-results/junit.xml'  // Correct the path to the test results
         }
     }
 }
