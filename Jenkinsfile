@@ -44,7 +44,7 @@ pipeline {
             steps {
                 sh '''
                     npm install serve
-                    node_modules/send -s build
+                    node_modules/.bin/serve -s build
                     npx playwrite test
                 '''
             }
