@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     stages {
-         /*
+        /*
         stage('Build') {
             agent {
                 docker {
@@ -37,9 +37,7 @@ pipeline {
         stage('E2E') {
             agent {
                 docker {
-                    image 'image 'mcr.microsoft.com/playwright:v1.39.0-jammy'
-
-'
+                    image 'mcr.microsoft.com/playwright:v1.39.0-jammy'
                     reuseNode true
                 }
             }
@@ -48,7 +46,7 @@ pipeline {
                     npm install serve
                     node_modules/.bin/serve -s build &
                     sleep 10
-                    npx playwrite test
+                    npx playwright test
                 '''
             }
         }
