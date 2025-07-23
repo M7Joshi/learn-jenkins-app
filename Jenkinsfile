@@ -38,12 +38,14 @@ pipeline {
             agent {
                 docker {
                     image 'mrc.microsoft.com/playwrite:v1.39.0-jammy'
+                    reuseNode true
+                    arg '-u root:root'
                 }
             }
             steps {
                 sh '''
-                    npm install -g serve
-                    serve -s build
+                    npm install serve
+                    node_modules/send -s build
                     npx playwrite test
                 '''
             }
