@@ -3,6 +3,12 @@ pipeline {
 
     stages {
         
+        stage('Checkout') {
+            steps {
+                checkout scm  // This will automatically checkout the repository configured in the Jenkins job
+            }
+        }
+
         stage('Build') {
             agent {
                 docker {
@@ -46,9 +52,10 @@ pipeline {
                 sh '''
                     npm install serve
                     node_modules/.bin/serve -s build &
+                    sleep 10
                     npx playwright test --reporter=junit --output=jest-results
-                    # Ensure the Playwright test results are in the correct directory
-                    ls -la jest-results  # To verify test results are generated
+                    # Verify the content of jest-results directory
+                    ls -la jest-results  # Check if the JUnit test report is generated
                 '''
             }
         }
@@ -56,7 +63,7 @@ pipeline {
 
     post {
         always {
-            junit '**/jest-results/**/*.xml'  // Correct the path to the test results
+            junit '**/jest-results/junit.xml'  // Ensure the path to the test results is correct
         }
     }
 }
