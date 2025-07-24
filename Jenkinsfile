@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     stages {
-        /*
+        
         stage('Build') {
             agent {
                 docker {
@@ -20,7 +20,7 @@ pipeline {
                 '''
             }
         }
-        */
+        
         stage('Test') {
             agent {
                 docker {
@@ -34,6 +34,7 @@ pipeline {
                 '''
             }
         }
+
         stage('E2E') {
             agent {
                 docker {
@@ -45,8 +46,9 @@ pipeline {
                 sh '''
                     npm install serve
                     node_modules/.bin/serve -s build &
-                    sleep 10
                     npx playwright test --reporter=junit --output=jest-results
+                    # Ensure the Playwright test results are in the correct directory
+                    ls -la jest-results  # To verify test results are generated
                 '''
             }
         }
@@ -54,7 +56,7 @@ pipeline {
 
     post {
         always {
-            junit '**/jest-results/junit.xml'  // Correct the path to the test results
+            junit '**/jest-results/**/*.xml'  // Correct the path to the test results
         }
     }
 }
