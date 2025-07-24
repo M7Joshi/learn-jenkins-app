@@ -2,14 +2,21 @@ pipeline {
     agent any
 
     environment {
-        // Define any necessary environment variables here
+        // Define environment variables
+        PLAYWRIGHT_IMAGE = 'mcr.microsoft.com/playwright:v1.39.0-noble'  // Playwright Docker image version
+        GIT_REPO_URL = 'https://github.com/M7Joshi/learn-jenkins-app.git' // Git repository URL
+        WORKSPACE_DIR = '/var/jenkins_home/workspace/learn-jenkins-app'  // Jenkins workspace directory
+        NPM_COMMAND = 'npm ci'  // Command to install npm dependencies
+        BUILD_COMMAND = 'npm run build'  // Command to build the React app
+        TEST_COMMAND = 'npm test -- --testResultsProcessor="jest-junit"'  // Command to run tests
+        E2E_COMMAND = 'npm run e2e'  // Command to run Playwright E2E tests
     }
 
     stages {
         stage('Checkout SCM') {
             steps {
                 script {
-                    // Checkout the latest code from the repository
+                    // Checkout the latest code from the Git repository
                     checkout scm
                 }
             }
@@ -18,10 +25,10 @@ pipeline {
         stage('Build') {
             steps {
                 script {
-                    // Build the React app
+                    // Build the React app using npm
                     echo 'Building the React application...'
-                    sh 'npm ci'
-                    sh 'npm run build'
+                    sh "${NPM_COMMAND}"
+                    sh "${BUILD_COMMAND}"
                 }
             }
         }
@@ -31,7 +38,7 @@ pipeline {
                 script {
                     // Run tests using Jest
                     echo 'Running tests...'
-                    sh 'npm test -- --testResultsProcessor="jest-junit"'
+                    sh "${TEST_COMMAND}"
                 }
             }
         }
@@ -39,18 +46,18 @@ pipeline {
         stage('E2E Tests') {
             steps {
                 script {
-                    // Pull the correct Playwright Docker image (v1.39.0)
+                    // Pull the correct Playwright Docker image using the variable
                     echo 'Pulling Playwright Docker image...'
-                    sh 'docker pull mcr.microsoft.com/playwright:v1.39.0-noble'
+                    sh "docker pull ${PLAYWRIGHT_IMAGE}"
 
-                    // Run the tests in the Playwright Docker container
+                    // Run the E2E tests in the Playwright Docker container
                     echo 'Running Playwright E2E tests...'
-                    sh '''
-                        docker run -t -d -u 1000:1000 -w /var/jenkins_home/workspace/learn-jenkins-app \
-                        -v /var/jenkins_home/workspace/learn-jenkins-app:/var/jenkins_home/workspace/learn-jenkins-app:rw,z \
-                        -v /var/jenkins_home/workspace/learn-jenkins-app@tmp:/var/jenkins_home/workspace/learn-jenkins-app@tmp:rw,z \
-                        mcr.microsoft.com/playwright:v1.39.0-noble /bin/bash -c "npm install && npm run e2e"
-                    '''
+                    sh """
+                        docker run -t -d -u 1000:1000 -w ${WORKSPACE_DIR} \
+                        -v ${WORKSPACE_DIR}:${WORKSPACE_DIR}:rw,z \
+                        -v ${WORKSPACE_DIR}@tmp:${WORKSPACE_DIR}@tmp:rw,z \
+                        ${PLAYWRIGHT_IMAGE} /bin/bash -c "${NPM_COMMAND} && ${E2E_COMMAND}"
+                    """
                 }
             }
         }
