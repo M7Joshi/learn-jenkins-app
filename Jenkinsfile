@@ -2,71 +2,74 @@ pipeline {
     agent any
 
     environment {
-        PLAYWRIGHT_DOCKER_IMAGE = 'mcr.microsoft.com/playwright:v1.54.0-noble'
+        // Define any necessary environment variables here
     }
 
     stages {
         stage('Checkout SCM') {
             steps {
-                checkout scm
+                script {
+                    // Checkout the latest code from the repository
+                    checkout scm
+                }
             }
         }
 
-        // Temporarily block the build stage by commenting it out
-        // stage('Build') {
-        //     agent {
-        //         docker {
-        //             image 'node:18-alpine'
-        //         }
-        //     }
-        //     steps {
-        //         sh '''
-        //             ls -la
-        //             node --version
-        //             npm --version
-        //             npm ci
-        //             npm run build
-        //             ls -la
-        //         '''
-        //     }
-        // }
+        stage('Build') {
+            steps {
+                script {
+                    // Build the React app
+                    echo 'Building the React application...'
+                    sh 'npm ci'
+                    sh 'npm run build'
+                }
+            }
+        }
 
         stage('Test') {
-            agent {
-                docker {
-                    image 'node:18-alpine'
-                }
-            }
             steps {
-                sh '''
-                    test -f build/index.html
-                    npm test
-                '''
+                script {
+                    // Run tests using Jest
+                    echo 'Running tests...'
+                    sh 'npm test -- --testResultsProcessor="jest-junit"'
+                }
             }
         }
 
-        stage('E2E') {
-            agent {
-                docker {
-                    image "${PLAYWRIGHT_DOCKER_IMAGE}"
-                    reuseNode true
+        stage('E2E Tests') {
+            steps {
+                script {
+                    // Pull the correct Playwright Docker image (v1.39.0)
+                    echo 'Pulling Playwright Docker image...'
+                    sh 'docker pull mcr.microsoft.com/playwright:v1.39.0-noble'
+
+                    // Run the tests in the Playwright Docker container
+                    echo 'Running Playwright E2E tests...'
+                    sh '''
+                        docker run -t -d -u 1000:1000 -w /var/jenkins_home/workspace/learn-jenkins-app \
+                        -v /var/jenkins_home/workspace/learn-jenkins-app:/var/jenkins_home/workspace/learn-jenkins-app:rw,z \
+                        -v /var/jenkins_home/workspace/learn-jenkins-app@tmp:/var/jenkins_home/workspace/learn-jenkins-app@tmp:rw,z \
+                        mcr.microsoft.com/playwright:v1.39.0-noble /bin/bash -c "npm install && npm run e2e"
+                    '''
                 }
             }
+        }
+
+        stage('Post Actions') {
             steps {
-                sh '''
-                    npm install serve
-                    node_modules/.bin/serve -s build &
-                    sleep 10
-                    npx playwright test --reporter=junit --output=jest-results
-                    ls -la jest-results
-                '''
+                script {
+                    // Ensure that test results are recorded correctly
+                    echo 'Recording test results...'
+                    junit '**/jest-results/**/*.xml'
+                }
             }
         }
     }
 
     post {
         always {
-            junit '**/jest-results/junit.xml'
+            // Perform cleanup or other necessary actions after the pipeline run
+            echo 'Pipeline run completed.'
         }
     }
 }
