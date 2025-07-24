@@ -2,12 +2,7 @@ pipeline {
     agent any
 
     stages {
-        
-        stage('Checkout') {
-            steps {
-                checkout scm  // This will automatically checkout the repository configured in the Jenkins job
-            }
-        }
+        /*
 
         stage('Build') {
             agent {
@@ -26,11 +21,13 @@ pipeline {
                 '''
             }
         }
+        */
         
         stage('Test') {
             agent {
                 docker {
                     image 'node:18-alpine'
+                    reuseNode true
                 }
             }
             steps {
@@ -44,7 +41,7 @@ pipeline {
         stage('E2E') {
             agent {
                 docker {
-                    image 'mcr.microsoft.com/playwright:v1.39.0-jammy'
+                    image 'mcr.microsoft.com/playwright:v1.54.0-noble'
                     reuseNode true
                 }
             }
