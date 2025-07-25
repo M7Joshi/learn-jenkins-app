@@ -47,13 +47,10 @@ pipeline {
             }
             steps {
                 sh '''
-                    npm install --save-dev serve  // Ensure serve is installed locally
-                    serve -s build &  // Run serve in the background
-                    until curl --output /dev/null --silent --head --fail http://localhost:5000; do
-                        echo "Waiting for server to start..."
-                        sleep 1
-                    done
-                    npx playwright test  // Run Playwright tests once the server is ready
+                    npm install -g serve
+                    node_modules/.bin/serve -s build &
+                    sleep 10
+                    npx playwright test
                 '''
             }
         }
@@ -61,7 +58,7 @@ pipeline {
 
     post {
         always {
-            junit '**/jest-results/tunit.xml'  // Ensure this path is correct for your Jest test results
+            junit '**/jest-results/tunit.xml'
         }
     }
 }
