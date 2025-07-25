@@ -1,8 +1,10 @@
+
+
 pipeline {
     agent any
 
     stages {
-        /*
+
         stage('Build') {
             agent {
                 docker {
@@ -12,20 +14,66 @@ pipeline {
             }
             steps {
                 sh '''
-                    echo "Building application..."
+                    ls -la
                     node --version
                     npm --version
                     npm ci
-                    npm install react-app-rewired
-                    # echo "Pausing build for 30 seconds..."
-                    # sleep 30
                     npm run build
-                    ls -la build/
+                    ls -la
                 '''
             }
-        }*/
+        }
 
-        stage('Test') {
+        stage('Tests') {
+            parallel {
+                stage('Unit tests') {
+                    agent {
+                        docker {
+                            image 'node:18-alpine'
+                            reuseNode true
+                        }
+                    }
+
+                    steps {
+                        sh '''
+                            #test -f build/index.html
+                            npm test
+                        '''
+                    }
+                    post {
+                        always {
+                            junit 'jest-results/junit.xml'
+                        }
+                    }
+                }
+
+                stage('E2E') {
+                    agent {
+                        docker {
+                            image 'mcr.microsoft.com/playwright:v1.54.0-noble'
+                            reuseNode true
+                        }
+                    }
+
+                    steps {
+                        sh '''
+                            npm install serve
+                            node_modules/.bin/serve -s build &
+                            sleep 10
+                            npx playwright test  --reporter=html
+                        '''
+                    }
+
+                    post {
+                        always {
+                            publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Playwright HTML Report', reportTitles: '', useWrapperFileDirectly: true])
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Deploy') {
             agent {
                 docker {
                     image 'node:18-alpine'
@@ -34,47 +82,10 @@ pipeline {
             }
             steps {
                 sh '''
-                    echo "Running unit tests..."
-                    npm test
+                    npm install netlify-cli
+                    node_modules/.bin/netlify --version
                 '''
             }
-        }
-
-        stage('E2E') {
-            agent {
-                docker {
-                    image 'mcr.microsoft.com/playwright:v1.41.0-focal'
-                    reuseNode true
-                }
-            }
-            steps {
-                sh '''
-                    echo "Starting server for E2E tests..."
-                    npm install -g serve
-                    node_modules/.bin/serve -s build &
-                    echo "Waiting for server to start..."
-                    sleep 10
-                    echo "Running E2E tests..."
-                    npx playwright test
-                '''
-            }
-        }
-    }
-
-    post {
-        always {
-            junit '**/jest-results/junit.xml'  // Correct path as per package.json
-            archiveArtifacts artifacts: 'build/**', allowEmptyArchive: true
-            cleanWs()
-        }
-        
-        success {
-            echo 'Pipeline completed successfully!'
-        }
-        
-        failure {
-            echo 'Pipeline failed!'
-            error 'Pipeline execution failed'
         }
     }
 }
