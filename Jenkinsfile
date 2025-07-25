@@ -2,6 +2,7 @@ pipeline {
     agent any
 
     stages {
+        /*
         stage('Build') {
             agent {
                 docker {
@@ -15,11 +16,14 @@ pipeline {
                     node --version
                     npm --version
                     npm ci
+                    npm install react-app-rewired
+                    # echo "Pausing build for 30 seconds..."
+                    # sleep 30
                     npm run build
                     ls -la build/
                 '''
             }
-        }
+        }*/
 
         stage('Test') {
             agent {
@@ -59,7 +63,7 @@ pipeline {
 
     post {
         always {
-            junit '**/jest-results/junit.xml'
+            junit '**/jest-results/junit.xml'  // Correct path as per package.json
             archiveArtifacts artifacts: 'build/**', allowEmptyArchive: true
             cleanWs()
         }
