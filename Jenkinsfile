@@ -32,6 +32,8 @@ pipeline {
             }
             steps {
                 sh '''
+                    npm install  // Ensure all dependencies are installed
+                    npm install --save-dev react-app-rewired  // Install react-app-rewired
                     test -f build/index.html
                     npm test
                 '''
