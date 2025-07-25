@@ -55,14 +55,7 @@ pipeline {
                         npm install -g serve
                         node_modules/.bin/serve -s build &
                         echo "Waiting for server to start..."
-                        timeout 30 {
-                            sh '''
-                                while ! curl -s http://localhost:3000 > /dev/null; do
-                                    echo "Waiting for server..."
-                                    sleep 5
-                                done
-                            '''
-                        }
+                        sleep 10
                         echo "Running E2E tests..."
                         npx playwright test
                     '''
