@@ -10,17 +10,14 @@ pipeline {
                 }
             }
             steps {
-                // Cache npm dependencies
-                cache(key: 'npm-deps', path: 'node_modules/') {
-                    sh '''
-                        echo "Building application..."
-                        node --version
-                        npm --version
-                        npm ci
-                        npm run build
-                        ls -la build/
-                    '''
-                }
+                sh '''
+                    echo "Building application..."
+                    node --version
+                    npm --version
+                    npm ci
+                    npm run build
+                    ls -la build/
+                '''
             }
         }
 
@@ -32,12 +29,10 @@ pipeline {
                 }
             }
             steps {
-                cache(key: 'npm-deps', path: 'node_modules/') {
-                    sh '''
-                        echo "Running unit tests..."
-                        npm test
-                    '''
-                }
+                sh '''
+                    echo "Running unit tests..."
+                    npm test
+                '''
             }
         }
 
@@ -49,17 +44,15 @@ pipeline {
                 }
             }
             steps {
-                cache(key: 'npm-deps', path: 'node_modules/') {
-                    sh '''
-                        echo "Starting server for E2E tests..."
-                        npm install -g serve
-                        node_modules/.bin/serve -s build &
-                        echo "Waiting for server to start..."
-                        sleep 10
-                        echo "Running E2E tests..."
-                        npx playwright test
-                    '''
-                }
+                sh '''
+                    echo "Starting server for E2E tests..."
+                    npm install -g serve
+                    node_modules/.bin/serve -s build &
+                    echo "Waiting for server to start..."
+                    sleep 10
+                    echo "Running E2E tests..."
+                    npx playwright test
+                '''
             }
         }
     }
