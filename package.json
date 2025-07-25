@@ -9,7 +9,6 @@
     "jest-junit": "^16.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-scripts": "5.0.1",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
@@ -42,7 +41,8 @@
     "@types/node": "^20.8.6",
     "jest-junit": "^16.0.0",
     "react-app-rewired": "^2.2.1",
-    "serve": "^14.2.0"
+    "react-scripts": "^0.0.0",
+    "serve": "^10.0.2"
   },
   "jest": {
     "testResultsProcessor": "jest-junit",
