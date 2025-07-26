@@ -19,6 +19,7 @@ pipeline {
             }
             steps {
                 sh '''
+                    apk add --no-cache bash
                     ls -la
                     node --version
                     npm --version
