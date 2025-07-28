@@ -13,20 +13,18 @@ pipeline {
                 docker {
                     image 'node:18-alpine'
                     reuseNode true
-                    args '-u root'  // Run as root for apk
+                    args '-u root'
                 }
             }
             steps {
                 sh '''
                     apk add --no-cache bash
+                    ls -la
                     node --version
                     npm --version
-                    npm ci || { echo "❌ npm ci failed"; exit 1; }
-                    npm run build || { echo "❌ Build failed"; exit 1; }
-
-                    echo "✅ Verifying build output..."
-                    ls -la
-                    ls -la build || { echo "❌ Build folder not found!"; exit 1; }
+                    npm ci
+                    npm run build
+                    ls -la build
                 '''
             }
         }
@@ -74,7 +72,8 @@ pipeline {
                                 keepAll: false,
                                 reportDir: 'playwright-report',
                                 reportFiles: 'index.html',
-                                reportName: 'Playwright HTML Report'
+                                reportName: 'Playwright HTML Report',
+                                useWrapperFileDirectly: true
                             ])
                         }
                     }
@@ -87,19 +86,21 @@ pipeline {
                 docker {
                     image 'node:18-alpine'
                     reuseNode true
-                    args '-u root'  // npm install + access perms
+                    args '-u root'
                 }
             }
             steps {
                 sh '''
+                    echo "Installing Netlify CLI..."
                     npm install netlify-cli
-                    node_modules/.bin/netlify --version
 
-                    echo "📦 Checking if build folder exists before deploy..."
-                    ls -la build || { echo "❌ Build directory not found! Cannot deploy."; exit 1; }
+                    echo "Deploying to Netlify (production)..."
+                    DEPLOY_OUTPUT=$(node_modules/.bin/netlify deploy --auth=${NETLIFY_AUTH_TOKEN} --site=${NETLIFY_SITE_ID} --dir=build --prod --json)
 
-                    echo "🚀 Deploying to Netlify..."
-                    node_modules/.bin/netlify deploy --auth=${NETLIFY_AUTH_TOKEN} --site=${NETLIFY_SITE_ID} --dir=build --prod
+                    echo "$DEPLOY_OUTPUT" > deploy-output.json
+
+                    echo "Deployment successful! Extracted URL:"
+                    echo "$DEPLOY_OUTPUT" | grep -o '"url":"[^"]*' | head -n1 | cut -d':' -f2-
                 '''
             }
         }
