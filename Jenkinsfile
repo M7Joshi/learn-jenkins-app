@@ -13,7 +13,7 @@ pipeline {
                 docker {
                     image 'node:18-alpine'
                     reuseNode true
-                    args '-u root'  // <-- Run container as root
+                    args '-u root'  // Run container as root
                 }
             }
             steps {
@@ -36,10 +36,9 @@ pipeline {
                         docker {
                             image 'node:18-alpine'
                             reuseNode true
-                            args '-u root' // optional, only needed if you install packages here
+                            args '-u root'
                         }
                     }
-
                     steps {
                         sh 'npm test'
                     }
@@ -57,7 +56,6 @@ pipeline {
                             reuseNode true
                         }
                     }
-
                     steps {
                         sh '''
                             npm install serve
@@ -66,7 +64,6 @@ pipeline {
                             npx playwright test --reporter=html
                         '''
                     }
-
                     post {
                         always {
                             publishHTML([
@@ -90,16 +87,25 @@ pipeline {
                 docker {
                     image 'node:18-alpine'
                     reuseNode true
-                    args '-u root' // <-- Needed for npm install
+                    args '-u root'
                 }
             }
             steps {
                 sh '''
+                    echo "Installing Netlify CLI..."
                     npm install netlify-cli
-                    node_modules/.bin/netlify --version
-                    echo "Deploying to production. Site ID: ${NETLIFY_SITE_ID}"
-                    node_modules/.bin/netlify status
-                    node_modules/.bin/netlify deploy --dir=build --prod
+
+                    echo "Netlify CLI version:"
+                    node_modules/.bin/netlify --version || echo "❌ Netlify CLI not found"
+
+                    echo "Checking build directory contents:"
+                    ls -la build || { echo "❌ Build directory is missing"; exit 1; }
+
+                    echo "Checking Netlify authentication status:"
+                    node_modules/.bin/netlify status || echo "⚠️ Could not verify login (okay if using token)"
+
+                    echo "Deploying to Netlify with site ID ${NETLIFY_SITE_ID}..."
+                    node_modules/.bin/netlify deploy --auth=${NETLIFY_AUTH_TOKEN} --site=${NETLIFY_SITE_ID} --dir=build --prod --debug
                 '''
             }
         }
