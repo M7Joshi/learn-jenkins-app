@@ -18,11 +18,13 @@ pipeline {
             }
             steps {
                 sh '''
-                    apk add --no-cache bash curl jq
+                    apk add --no-cache bash
+                    ls -la
                     node --version
                     npm --version
                     npm ci
                     npm run build
+                    ls -la build
                 '''
             }
         }
@@ -71,6 +73,7 @@ pipeline {
                                 reportDir: 'playwright-report',
                                 reportFiles: 'index.html',
                                 reportName: 'Playwright HTML Report',
+                                reportTitles: '',
                                 useWrapperFileDirectly: true
                             ])
                         }
@@ -89,16 +92,19 @@ pipeline {
             }
             steps {
                 sh '''
+                    echo "Installing bash, curl, jq..."
+                    apk add --no-cache bash curl jq
+
                     echo "Installing Netlify CLI..."
                     npm install netlify-cli
 
                     echo "Deploying to Netlify..."
-                    DEPLOY_OUTPUT=$(npx netlify deploy --auth=${NETLIFY_AUTH_TOKEN} --site=${NETLIFY_SITE_ID} --dir=build --prod --json)
+                    DEPLOY_OUTPUT=$(npx netlify deploy --auth=$NETLIFY_AUTH_TOKEN --site=$NETLIFY_SITE_ID --dir=build --prod --json)
 
+                    echo "✅ Deployment complete!"
                     echo "$DEPLOY_OUTPUT" > deploy-output.json
 
-                    echo "✅ Deployed Successfully!"
-                    echo "🔗 Netlify Live URL:"
+                    echo "🔗 Your live site URL:"
                     echo "$DEPLOY_OUTPUT" | jq -r '.url'
                 '''
             }
