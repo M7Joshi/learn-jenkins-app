@@ -19,12 +19,10 @@ pipeline {
             steps {
                 sh '''
                     apk add --no-cache bash curl jq
-                    ls -la
                     node --version
                     npm --version
                     npm ci
                     npm run build
-                    ls -la build
                 '''
             }
         }
@@ -95,12 +93,13 @@ pipeline {
                     npm install netlify-cli
 
                     echo "Deploying to Netlify..."
-                    DEPLOY_OUTPUT=$(node_modules/.bin/netlify deploy --auth=${NETLIFY_AUTH_TOKEN} --site=${NETLIFY_SITE_ID} --dir=build --prod --json)
+                    DEPLOY_OUTPUT=$(npx netlify deploy --auth=${NETLIFY_AUTH_TOKEN} --site=${NETLIFY_SITE_ID} --dir=build --prod --json)
 
                     echo "$DEPLOY_OUTPUT" > deploy-output.json
 
-                    echo "Extracted Netlify URL:"
-                    echo "$DEPLOY_OUTPUT" | grep -o '"url":"[^"]*' | cut -d':' -f2- | tr -d '"'
+                    echo "✅ Deployed Successfully!"
+                    echo "🔗 Netlify Live URL:"
+                    echo "$DEPLOY_OUTPUT" | jq -r '.url'
                 '''
             }
         }
