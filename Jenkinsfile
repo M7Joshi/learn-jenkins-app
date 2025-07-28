@@ -99,18 +99,16 @@ pipeline {
                     echo "Installing Netlify CLI..."
                     npm install netlify-cli
 
-                    echo "Deploying to Netlify..."
-                    DEPLOY_OUTPUT=$(npx netlify deploy --auth=$NETLIFY_AUTH_TOKEN --site=$NETLIFY_SITE_ID --dir=build --prod --json)
+                    echo "Deploying to Netlify (staging)..."
+                    node_modules/.bin/netlify deploy --auth=$NETLIFY_AUTH_TOKEN --site=$NETLIFY_SITE_ID --dir=build --json > deploy-output.json
 
-                    echo "✅ Deployment complete!"
-                    echo "$DEPLOY_OUTPUT" > deploy-output.json
-
-                    echo "🔗 Your live site URL:"
-                    node_modules/.bin/netlify depoy --dir=build
-
+                    echo "✅ Staging deployment complete!"
+                    echo "🔗 Your staging site URL:"
+                    cat deploy-output.json | jq -r '.url'
                 '''
             }
         }
+
         stage('Deploy prod') {
             agent {
                 docker {
@@ -127,14 +125,12 @@ pipeline {
                     echo "Installing Netlify CLI..."
                     npm install netlify-cli
 
-                    echo "Deploying to Netlify..."
-                    DEPLOY_OUTPUT=$(npx netlify deploy --auth=$NETLIFY_AUTH_TOKEN --site=$NETLIFY_SITE_ID --dir=build --prod --json)
+                    echo "Deploying to Netlify (production)..."
+                    node_modules/.bin/netlify deploy --auth=$NETLIFY_AUTH_TOKEN --site=$NETLIFY_SITE_ID --dir=build --prod --json > deploy-output.json
 
-                    echo "✅ Deployment complete!"
-                    echo "$DEPLOY_OUTPUT" > deploy-output.json
-
-                    echo "🔗 Your live site URL:"
-                    echo "$DEPLOY_OUTPUT" | jq -r '.url'
+                    echo "✅ Production deployment complete!"
+                    echo "🔗 Your production site URL:"
+                    cat deploy-output.json | jq -r '.url'
                 '''
             }
         }
