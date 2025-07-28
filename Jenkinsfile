@@ -13,18 +13,20 @@ pipeline {
                 docker {
                     image 'node:18-alpine'
                     reuseNode true
-                    args '-u root'  // Run container as root
+                    args '-u root'  // Run as root for apk
                 }
             }
             steps {
                 sh '''
                     apk add --no-cache bash
-                    ls -la
                     node --version
                     npm --version
-                    npm ci
-                    npm run build
-                    ls -la build
+                    npm ci || { echo "❌ npm ci failed"; exit 1; }
+                    npm run build || { echo "❌ Build failed"; exit 1; }
+
+                    echo "✅ Verifying build output..."
+                    ls -la
+                    ls -la build || { echo "❌ Build folder not found!"; exit 1; }
                 '''
             }
         }
@@ -72,9 +74,7 @@ pipeline {
                                 keepAll: false,
                                 reportDir: 'playwright-report',
                                 reportFiles: 'index.html',
-                                reportName: 'Playwright HTML Report',
-                                reportTitles: '',
-                                useWrapperFileDirectly: true
+                                reportName: 'Playwright HTML Report'
                             ])
                         }
                     }
@@ -87,25 +87,19 @@ pipeline {
                 docker {
                     image 'node:18-alpine'
                     reuseNode true
-                    args '-u root'
+                    args '-u root'  // npm install + access perms
                 }
             }
             steps {
                 sh '''
-                    echo "Installing Netlify CLI..."
                     npm install netlify-cli
+                    node_modules/.bin/netlify --version
 
-                    echo "Netlify CLI version:"
-                    node_modules/.bin/netlify --version || echo "❌ Netlify CLI not found"
+                    echo "📦 Checking if build folder exists before deploy..."
+                    ls -la build || { echo "❌ Build directory not found! Cannot deploy."; exit 1; }
 
-                    echo "Checking build directory contents:"
-                    ls -la build || { echo "❌ Build directory is missing"; exit 1; }
-
-                    echo "Checking Netlify authentication status:"
-                    node_modules/.bin/netlify status || echo "⚠️ Could not verify login (okay if using token)"
-
-                    echo "Deploying to Netlify with site ID ${NETLIFY_SITE_ID}..."
-                    node_modules/.bin/netlify deploy --auth=${NETLIFY_AUTH_TOKEN} --site=${NETLIFY_SITE_ID} --dir=build --prod --debug
+                    echo "🚀 Deploying to Netlify..."
+                    node_modules/.bin/netlify deploy --auth=${NETLIFY_AUTH_TOKEN} --site=${NETLIFY_SITE_ID} --dir=build --prod
                 '''
             }
         }
