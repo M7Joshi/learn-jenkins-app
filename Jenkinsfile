@@ -13,6 +13,7 @@ pipeline {
                 docker {
                     image 'node:18-alpine'
                     reuseNode true
+                    args '-u root'  // <-- Run container as root
                 }
             }
             steps {
@@ -35,13 +36,12 @@ pipeline {
                         docker {
                             image 'node:18-alpine'
                             reuseNode true
+                            args '-u root' // optional, only needed if you install packages here
                         }
                     }
 
                     steps {
-                        sh '''
-                            npm test
-                        '''
+                        sh 'npm test'
                     }
                     post {
                         always {
@@ -69,7 +69,16 @@ pipeline {
 
                     post {
                         always {
-                            publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Playwright HTML Report', reportTitles: '', useWrapperFileDirectly: true])
+                            publishHTML([
+                                allowMissing: false,
+                                alwaysLinkToLastBuild: false,
+                                keepAll: false,
+                                reportDir: 'playwright-report',
+                                reportFiles: 'index.html',
+                                reportName: 'Playwright HTML Report',
+                                reportTitles: '',
+                                useWrapperFileDirectly: true
+                            ])
                         }
                     }
                 }
@@ -81,6 +90,7 @@ pipeline {
                 docker {
                     image 'node:18-alpine'
                     reuseNode true
+                    args '-u root' // <-- Needed for npm install
                 }
             }
             steps {
@@ -89,7 +99,6 @@ pipeline {
                     node_modules/.bin/netlify --version
                     echo "Deploying to production. Site ID: ${NETLIFY_SITE_ID}"
                     node_modules/.bin/netlify status
-                    
                 '''
             }
         }
