@@ -90,6 +90,9 @@ pipeline {
                     args '-u root'
                 }
             }
+            environment {
+                STAGING_URL = ''
+            }
             steps {
                 sh '''
                     echo "Installing dependencies..."
@@ -110,6 +113,47 @@ pipeline {
                     echo "🔗 Staging site URL:"
                     cat deploy-output.json | jq -r '.deploy_url'
                 '''
+                script {
+                    env.STAGING_URL = sh(
+                        script: "cat deploy-output.json | jq -r '.deploy_url'",
+                        returnStdout: true
+                    ).trim()
+                    echo "STAGING_URL set to: ${env.STAGING_URL}"
+                }
+            }
+        }
+
+        stage('Staging E2E') {
+            agent {
+                docker {
+                    image 'mcr.microsoft.com/playwright:v1.54.0-noble'
+                    reuseNode true
+                    args '-u root'
+                }
+            }
+            environment {
+                CI_ENVIRONMENT_URL = "${env.STAGING_URL}"
+            }
+            steps {
+                sh '''
+                    echo "Running E2E tests on STAGING..."
+                    echo "Target URL: $CI_ENVIRONMENT_URL"
+                    npx playwright test --reporter=html
+                '''
+            }
+            post {
+                always {
+                    publishHTML([
+                        allowMissing: false,
+                        alwaysLinkToLastBuild: false,
+                        keepAll: false,
+                        reportDir: 'playwright-report',
+                        reportFiles: 'index.html',
+                        reportName: 'Staging E2E',
+                        reportTitles: '',
+                        useWrapperFileDirectly: true
+                    ])
+                }
             }
         }
 
@@ -166,7 +210,8 @@ pipeline {
             }
             steps {
                 sh '''
-                    echo "Running E2E tests on production..."
+                    echo "Running E2E tests on PRODUCTION..."
+                    echo "Target URL: $CI_ENVIRONMENT_URL"
                     npx playwright test --reporter=html
                 '''
             }
@@ -178,7 +223,7 @@ pipeline {
                         keepAll: false,
                         reportDir: 'playwright-report',
                         reportFiles: 'index.html',
-                        reportName: 'Playwright E2E',
+                        reportName: 'Prod E2E',
                         reportTitles: '',
                         useWrapperFileDirectly: true
                     ])
