@@ -90,12 +90,8 @@ pipeline {
                     args '-u root'
                 }
             }
-            environment {
-                STAGING_URL = ''
-            }
             steps {
                 sh '''
-                    echo "Installing dependencies..."
                     apk add --no-cache bash curl jq
                     npm install netlify-cli
 
@@ -106,12 +102,7 @@ pipeline {
                       --dir=build \
                       --json > deploy-output.json
 
-                    echo "✅ Staging deployment complete!"
-                    echo "📦 Full JSON output:"
-                    cat deploy-output.json | jq .
-
-                    echo "🔗 Staging site URL:"
-                    cat deploy-output.json | jq -r '.deploy_url'
+                    echo "✅ Deployment done. JSON written to deploy-output.json."
                 '''
                 script {
                     env.STAGING_URL = sh(
@@ -131,14 +122,13 @@ pipeline {
                     args '-u root'
                 }
             }
-            environment {
-                CI_ENVIRONMENT_URL = "${env.STAGING_URL}"
-            }
             steps {
+                script {
+                    echo "Running E2E tests on staging: ${env.STAGING_URL}"
+                }
                 sh '''
-                    echo "Running E2E tests on STAGING..."
-                    echo "Target URL: $CI_ENVIRONMENT_URL"
-                    npx playwright test --reporter=html
+                    echo "Running Playwright against STAGING..."
+                    CI_ENVIRONMENT_URL=$STAGING_URL npx playwright test --reporter=html
                 '''
             }
             post {
@@ -175,7 +165,6 @@ pipeline {
             }
             steps {
                 sh '''
-                    echo "Installing dependencies..."
                     apk add --no-cache bash curl jq
                     npm install netlify-cli
 
@@ -187,12 +176,8 @@ pipeline {
                       --prod \
                       --json > deploy-output.json
 
-                    echo "✅ Production deployment complete!"
-                    echo "📦 Full JSON output:"
+                    echo "✅ Production deployed."
                     cat deploy-output.json | jq .
-
-                    echo "🔗 Production site URL:"
-                    cat deploy-output.json | jq -r '.url'
                 '''
             }
         }
@@ -210,8 +195,7 @@ pipeline {
             }
             steps {
                 sh '''
-                    echo "Running E2E tests on PRODUCTION..."
-                    echo "Target URL: $CI_ENVIRONMENT_URL"
+                    echo "Running Playwright against PRODUCTION..."
                     npx playwright test --reporter=html
                 '''
             }
