@@ -83,41 +83,6 @@ pipeline {
             }
         }
 
-        stage('Deploy staging') {
-            agent {
-                docker {
-                    image 'node:18-alpine'
-                    reuseNode true
-                    args '-u root'
-                }
-            }
-            steps {
-                sh '''
-                    echo "Installing bash, curl, jq..."
-                    apk add --no-cache bash curl jq
-
-                    echo "Installing Netlify CLI..."
-                    npm install netlify-cli
-
-                    echo "Deploying to Netlify (staging)..."
-                    node_modules/.bin/netlify deploy --auth=$NETLIFY_AUTH_TOKEN --site=$NETLIFY_SITE_ID --dir=build --json > deploy-output.json
-
-                    echo "✅ Staging deployment complete!"
-                    echo "🔗 Your staging site URL:"
-                    cat deploy-output.json | jq -r '.url'
-                '''
-            }
-        }
-
-        stage('Approval') {
-            steps {
-               timeout(time : 15, unit: 'MINUTES'){
-                 input message: 'Do you wish to deploy to production?', ok:'Yes,Iam sure!'
-
-               }
-            }
-        }
-
         stage('Deploy prod') {
             agent {
                 docker {
@@ -128,7 +93,7 @@ pipeline {
             }
             steps {
                 sh '''
-                    echo "Installing bash, curl, jq..."
+                    echo "Installing dependencies..."
                     apk add --no-cache bash curl jq
 
                     echo "Installing Netlify CLI..."
@@ -138,6 +103,9 @@ pipeline {
                     node_modules/.bin/netlify deploy --auth=$NETLIFY_AUTH_TOKEN --site=$NETLIFY_SITE_ID --dir=build --prod --json > deploy-output.json
 
                     echo "✅ Production deployment complete!"
+                    echo "📦 Full JSON output:"
+                    cat deploy-output.json | jq .
+
                     echo "🔗 Your production site URL:"
                     cat deploy-output.json | jq -r '.url'
                 '''
@@ -157,6 +125,7 @@ pipeline {
             }
             steps {
                 sh '''
+                    echo "Running E2E tests on production..."
                     npx playwright test --reporter=html
                 '''
             }
