@@ -19,7 +19,6 @@ pipeline {
             steps {
                 sh '''
                     apk add --no-cache bash
-                    ls -la
                     node --version
                     npm --version
                     npm ci
@@ -83,6 +82,45 @@ pipeline {
             }
         }
 
+        stage('Deploy staging') {
+            agent {
+                docker {
+                    image 'node:18-alpine'
+                    reuseNode true
+                    args '-u root'
+                }
+            }
+            steps {
+                sh '''
+                    echo "Installing dependencies..."
+                    apk add --no-cache bash curl jq
+                    npm install netlify-cli
+
+                    echo "Deploying to Netlify (staging)..."
+                    node_modules/.bin/netlify deploy \
+                      --auth=$NETLIFY_AUTH_TOKEN \
+                      --site=$NETLIFY_SITE_ID \
+                      --dir=build \
+                      --json > deploy-output.json
+
+                    echo "✅ Staging deployment complete!"
+                    echo "📦 Full JSON output:"
+                    cat deploy-output.json | jq .
+
+                    echo "🔗 Staging site URL:"
+                    cat deploy-output.json | jq -r '.deploy_url'
+                '''
+            }
+        }
+
+        stage('Approval') {
+            steps {
+                timeout(time: 15, unit: 'MINUTES') {
+                    input message: 'Deploy to production?', ok: 'Yes, deploy!'
+                }
+            }
+        }
+
         stage('Deploy prod') {
             agent {
                 docker {
@@ -95,18 +133,21 @@ pipeline {
                 sh '''
                     echo "Installing dependencies..."
                     apk add --no-cache bash curl jq
-
-                    echo "Installing Netlify CLI..."
                     npm install netlify-cli
 
                     echo "Deploying to Netlify (production)..."
-                    node_modules/.bin/netlify deploy --auth=$NETLIFY_AUTH_TOKEN --site=$NETLIFY_SITE_ID --dir=build --prod --json > deploy-output.json
+                    node_modules/.bin/netlify deploy \
+                      --auth=$NETLIFY_AUTH_TOKEN \
+                      --site=$NETLIFY_SITE_ID \
+                      --dir=build \
+                      --prod \
+                      --json > deploy-output.json
 
                     echo "✅ Production deployment complete!"
                     echo "📦 Full JSON output:"
                     cat deploy-output.json | jq .
 
-                    echo "🔗 Your production site URL:"
+                    echo "🔗 Production site URL:"
                     cat deploy-output.json | jq -r '.url'
                 '''
             }
