@@ -82,16 +82,17 @@ pipeline {
             }
         }
 
-        stage('Deploy staging') {
+        stage('Deploy Staging') {
             agent {
                 docker {
-                    image 'node:18-alpine'
+                    image 'mcr.microsoft.com/playwright:v1.54.0-noble'
                     reuseNode true
                     args '-u root'
                 }
             }
             steps {
                 sh '''
+                    echo "Installing dependencies..."
                     apk add --no-cache bash curl jq
                     npm install netlify-cli
 
@@ -103,32 +104,12 @@ pipeline {
                       --json > deploy-output.json
 
                     echo "✅ Deployment done. JSON written to deploy-output.json."
-                '''
-                script {
-                    env.STAGING_URL = sh(
-                        script: "cat deploy-output.json | jq -r '.deploy_url'",
-                        returnStdout: true
-                    ).trim()
-                    echo "STAGING_URL set to: ${env.STAGING_URL}"
-                }
-            }
-        }
+                    cat deploy-output.json | jq .
 
-        stage('Staging E2E') {
-            agent {
-                docker {
-                    image 'mcr.microsoft.com/playwright:v1.54.0-noble'
-                    reuseNode true
-                    args '-u root'
-                }
-            }
-            steps {
-                script {
-                    echo "Running E2E tests on staging: ${env.STAGING_URL}"
-                }
-                sh '''
-                    echo "Running Playwright against STAGING..."
-                    CI_ENVIRONMENT_URL=$STAGING_URL npx playwright test --reporter=html
+                    export CI_ENVIRONMENT_URL=$(cat deploy-output.json | jq -r '.deploy_url')
+                    echo "Running E2E tests on staging: $CI_ENVIRONMENT_URL"
+
+                    CI_ENVIRONMENT_URL=$CI_ENVIRONMENT_URL npx playwright test --reporter=html
                 '''
             }
             post {
@@ -155,7 +136,7 @@ pipeline {
             }
         }
 
-        stage('Deploy prod') {
+        stage('Deploy Prod') {
             agent {
                 docker {
                     image 'node:18-alpine'
@@ -196,6 +177,7 @@ pipeline {
             steps {
                 sh '''
                     echo "Running Playwright against PRODUCTION..."
+                    echo "Target: $CI_ENVIRONMENT_URL"
                     npx playwright test --reporter=html
                 '''
             }
