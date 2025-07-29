@@ -7,7 +7,6 @@ pipeline {
     }
 
     stages {
-
         stage('Build') {
             agent {
                 docker {
@@ -82,7 +81,7 @@ pipeline {
             }
         }
 
-        stage('Deploy Staging') {
+        stage('Deploy staging') {
             agent {
                 docker {
                     image 'mcr.microsoft.com/playwright:v1.54.0-noble'
@@ -91,11 +90,11 @@ pipeline {
                 }
             }
             environment {
-                STAGING_URL = ''
+                CI_ENVIRONMENT_URL = ''
             }
             steps {
                 sh '''
-                    echo "Installing tools..."
+                    echo "Installing dependencies..."
                     apk add --no-cache bash curl jq
                     npm install netlify-cli
 
@@ -109,19 +108,21 @@ pipeline {
                     echo "✅ Deployment done. JSON written to deploy-output.json."
                     cat deploy-output.json | jq .
 
-                    echo "🔗 Extracting staging URL..."
-                    export STAGING_URL=$(cat deploy-output.json | jq -r '.deploy_url')
-                    echo "STAGING_URL=$STAGING_URL" > staging_url.env
+                    STAGING_URL=$(cat deploy-output.json | jq -r '.deploy_url')
+                    echo "STAGING_URL=$STAGING_URL" > staging.env
                 '''
                 script {
-                    def url = sh(script: "cat staging_url.env | grep STAGING_URL | cut -d '=' -f2", returnStdout: true).trim()
-                    env.CI_ENVIRONMENT_URL = url
-                    echo "CI_ENVIRONMENT_URL set to: ${env.CI_ENVIRONMENT_URL}"
+                    def stagingEnv = readFile('staging.env').trim().split('=')
+                    env.CI_ENVIRONMENT_URL = stagingEnv[1]
+                    echo "CI_ENVIRONMENT_URL is set to: ${env.CI_ENVIRONMENT_URL}"
                 }
+                sh '''
+                    echo "Running E2E tests on staging: $CI_ENVIRONMENT_URL"
+                    CI_ENVIRONMENT_URL=$CI_ENVIRONMENT_URL npx playwright test --reporter=html
+                '''
             }
             post {
                 always {
-                    archiveArtifacts artifacts: 'deploy-output.json', fingerprint: true
                     publishHTML([
                         allowMissing: false,
                         alwaysLinkToLastBuild: false,
@@ -144,7 +145,7 @@ pipeline {
             }
         }
 
-        stage('Deploy Prod') {
+        stage('Deploy prod') {
             agent {
                 docker {
                     image 'node:18-alpine'
@@ -169,11 +170,6 @@ pipeline {
                     cat deploy-output.json | jq .
                 '''
             }
-            post {
-                always {
-                    archiveArtifacts artifacts: 'deploy-output.json', fingerprint: true
-                }
-            }
         }
 
         stage('Prod E2E') {
@@ -191,7 +187,7 @@ pipeline {
                 sh '''
                     echo "Running Playwright against PRODUCTION..."
                     echo "Target URL: $CI_ENVIRONMENT_URL"
-                    npx playwright test --reporter=html
+                    CI_ENVIRONMENT_URL=$CI_ENVIRONMENT_URL npx playwright test --reporter=html
                 '''
             }
             post {
