@@ -90,9 +90,12 @@ pipeline {
                     args '-u root'
                 }
             }
+            environment {
+                STAGING_URL = ''
+            }
             steps {
                 sh '''
-                    echo "Installing dependencies..."
+                    echo "Installing tools..."
                     apk add --no-cache bash curl jq
                     npm install netlify-cli
 
@@ -106,14 +109,19 @@ pipeline {
                     echo "✅ Deployment done. JSON written to deploy-output.json."
                     cat deploy-output.json | jq .
 
-                    export CI_ENVIRONMENT_URL=$(cat deploy-output.json | jq -r '.deploy_url')
-                    echo "Running E2E tests on staging: $CI_ENVIRONMENT_URL"
-
-                    CI_ENVIRONMENT_URL=$CI_ENVIRONMENT_URL npx playwright test --reporter=html
+                    echo "🔗 Extracting staging URL..."
+                    export STAGING_URL=$(cat deploy-output.json | jq -r '.deploy_url')
+                    echo "STAGING_URL=$STAGING_URL" > staging_url.env
                 '''
+                script {
+                    def url = sh(script: "cat staging_url.env | grep STAGING_URL | cut -d '=' -f2", returnStdout: true).trim()
+                    env.CI_ENVIRONMENT_URL = url
+                    echo "CI_ENVIRONMENT_URL set to: ${env.CI_ENVIRONMENT_URL}"
+                }
             }
             post {
                 always {
+                    archiveArtifacts artifacts: 'deploy-output.json', fingerprint: true
                     publishHTML([
                         allowMissing: false,
                         alwaysLinkToLastBuild: false,
@@ -161,6 +169,11 @@ pipeline {
                     cat deploy-output.json | jq .
                 '''
             }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'deploy-output.json', fingerprint: true
+                }
+            }
         }
 
         stage('Prod E2E') {
@@ -177,7 +190,7 @@ pipeline {
             steps {
                 sh '''
                     echo "Running Playwright against PRODUCTION..."
-                    echo "Target: $CI_ENVIRONMENT_URL"
+                    echo "Target URL: $CI_ENVIRONMENT_URL"
                     npx playwright test --reporter=html
                 '''
             }
