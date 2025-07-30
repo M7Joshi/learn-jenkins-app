@@ -8,13 +8,12 @@ pipeline {
     }
 
     stages {
-
         stage('Build') {
             agent {
                 docker {
                     image 'node:18-bullseye'
                     reuseNode true
-                    args '--user root'
+                    args '-u root'
                 }
             }
             steps {
@@ -23,24 +22,25 @@ pipeline {
                     npm --version
                     npm ci
                     npm run build
-                    ls -la
+                    ls -la build
                 '''
             }
         }
 
         stage('Tests') {
             parallel {
-                stage('Unit tests') {
+                stage('Unit Tests') {
                     agent {
                         docker {
-                            image 'node:18-bullseye'
+                            image 'node:18-alpine'
                             reuseNode true
-                            args '--user root'
+                            args '-u root'
                         }
                     }
                     steps {
                         sh '''
-                            npm test || true
+                            npm install
+                            npm test
                         '''
                     }
                     post {
@@ -50,16 +50,17 @@ pipeline {
                     }
                 }
 
-                stage('E2E') {
+                stage('E2E (Local)') {
                     agent {
                         docker {
                             image 'mcr.microsoft.com/playwright:v1.39.0-jammy'
                             reuseNode true
-                            args '--user root'
+                            args '-u root'
                         }
                     }
                     steps {
                         sh '''
+                            npm install
                             npm install serve
                             npx serve -s build &
 
@@ -75,8 +76,7 @@ pipeline {
                                 keepAll: false,
                                 reportDir: 'playwright-report',
                                 reportFiles: 'index.html',
-                                reportName: 'Local E2E',
-                                useWrapperFileDirectly: true
+                                reportName: 'E2E Report - Local'
                             ])
                         }
                     }
@@ -89,21 +89,26 @@ pipeline {
                 docker {
                     image 'mcr.microsoft.com/playwright:v1.39.0-jammy'
                     reuseNode true
-                    args '--user root'
+                    args '-u root'
                 }
+            }
+
+            environment {
+                CI_ENVIRONMENT_URL = ''
             }
 
             steps {
                 sh '''
                     npm install netlify-cli node-jq
 
-                    echo "Deploying to STAGING..."
-                    npx netlify deploy --dir=build --json > deploy-output.json
+                    echo "Deploying to staging. Site ID: $NETLIFY_SITE_ID"
+                    npx netlify deploy --auth $NETLIFY_AUTH_TOKEN --site $NETLIFY_SITE_ID --dir=build --json > deploy-output.json
 
                     export CI_ENVIRONMENT_URL=$(npx node-jq -r '.deploy_url' deploy-output.json)
                     echo "Staging URL: $CI_ENVIRONMENT_URL"
 
-                    npx playwright test --reporter=html
+                    sleep 10
+                    npx playwright test --project=staging --reporter=html
                 '''
             }
 
@@ -115,8 +120,7 @@ pipeline {
                         keepAll: false,
                         reportDir: 'playwright-report',
                         reportFiles: 'index.html',
-                        reportName: 'Staging E2E',
-                        useWrapperFileDirectly: true
+                        reportName: 'E2E Report - Staging'
                     ])
                 }
             }
@@ -124,8 +128,8 @@ pipeline {
 
         stage('Approval') {
             steps {
-                timeout(time: 15, unit: 'MINUTES') {
-                    input message: 'Do you wish to deploy to production?', ok: 'Yes, deploy to Prod'
+                timeout(time: 10, unit: 'MINUTES') {
+                    input message: 'Deploy to Production?', ok: 'Yes, Deploy'
                 }
             }
         }
@@ -135,18 +139,24 @@ pipeline {
                 docker {
                     image 'mcr.microsoft.com/playwright:v1.39.0-jammy'
                     reuseNode true
-                    args '--user root'
+                    args '-u root'
                 }
+            }
+
+            environment {
+                CI_ENVIRONMENT_URL = 'https://cheerful-souffle-d0935a.netlify.app'
             }
 
             steps {
                 sh '''
                     npm install netlify-cli
 
-                    echo "Deploying to PRODUCTION..."
-                    npx netlify deploy --dir=build --prod
+                    echo "Deploying to production. Site ID: $NETLIFY_SITE_ID"
+                    npx netlify deploy --auth $NETLIFY_AUTH_TOKEN --site $NETLIFY_SITE_ID --dir=build --prod
 
-                    npx playwright test --reporter=html
+                    echo "Running Playwright tests on: $CI_ENVIRONMENT_URL"
+                    sleep 10
+                    npx playwright test --project=production --reporter=html
                 '''
             }
 
@@ -158,8 +168,7 @@ pipeline {
                         keepAll: false,
                         reportDir: 'playwright-report',
                         reportFiles: 'index.html',
-                        reportName: 'Prod E2E',
-                        useWrapperFileDirectly: true
+                        reportName: 'E2E Report - Production'
                     ])
                 }
             }
