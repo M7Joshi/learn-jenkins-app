@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        NETLIFY_SITE_ID = 'YOUR NETLIFY SITE ID'
+        NETLIFY_SITE_ID = 'e3433b10-adb3-41e4-8559-9cc091a7d737'
         NETLIFY_AUTH_TOKEN = credentials('netlify-token')
         REACT_APP_VERSION = "1.0.$BUILD_ID"
     }
@@ -23,7 +23,6 @@ pipeline {
                     npm --version
                     npm ci
                     npm run build
-                    ls -la
                 '''
             }
         }
@@ -39,9 +38,7 @@ pipeline {
                         }
                     }
                     steps {
-                        sh '''
-                            npm test
-                        '''
+                        sh 'npm test'
                     }
                     post {
                         always {
@@ -53,7 +50,7 @@ pipeline {
                 stage('E2E') {
                     agent {
                         docker {
-                            image 'mcr.microsoft.com/playwright:v1.39.0-jammy'
+                            image 'mcr.microsoft.com/playwright:v1.54.0-noble'
                             reuseNode true
                             args '-u root'
                         }
@@ -61,7 +58,7 @@ pipeline {
                     steps {
                         sh '''
                             npm install serve
-                            node_modules/.bin/serve -s build &
+                            npx serve -s build &
                             sleep 10
                             npx playwright test --reporter=html
                         '''
@@ -74,8 +71,7 @@ pipeline {
                                 keepAll: false,
                                 reportDir: 'playwright-report',
                                 reportFiles: 'index.html',
-                                reportName: 'Local E2E',
-                                reportTitles: '',
+                                reportName: 'E2E Report',
                                 useWrapperFileDirectly: true
                             ])
                         }
@@ -87,29 +83,23 @@ pipeline {
         stage('Deploy & Test Staging') {
             agent {
                 docker {
-                    image 'mcr.microsoft.com/playwright:v1.39.0-jammy'
+                    image 'mcr.microsoft.com/playwright:v1.54.0-noble'
                     reuseNode true
                     args '-u root'
                 }
             }
-
-            environment {
-                CI_ENVIRONMENT_URL = 'STAGING_URL_TO_BE_SET'
-            }
-
             steps {
                 sh '''
                     npm install netlify-cli node-jq
-                    node_modules/.bin/netlify --version
-                    echo "Deploying to staging. Site ID: $NETLIFY_SITE_ID"
-                    node_modules/.bin/netlify status
-                    node_modules/.bin/netlify deploy --dir=build --json > deploy-output.json
-                    export CI_ENVIRONMENT_URL=$(node_modules/.bin/node-jq -r '.deploy_url' deploy-output.json)
-                    echo "Staging URL: $CI_ENVIRONMENT_URL"
+                    echo "Deploying to staging..."
+                    npx netlify deploy --site=$NETLIFY_SITE_ID --auth=$NETLIFY_AUTH_TOKEN --dir=build --json > deploy-output.json
+                    STAGING_URL=$(npx node-jq -r '.deploy_url' deploy-output.json)
+                    echo "Staging deployed at: $STAGING_URL"
+
+                    # Run tests on the staging site
                     npx playwright test --reporter=html
                 '''
             }
-
             post {
                 always {
                     publishHTML([
@@ -118,8 +108,7 @@ pipeline {
                         keepAll: false,
                         reportDir: 'playwright-report',
                         reportFiles: 'index.html',
-                        reportName: 'Staging E2E',
-                        reportTitles: '',
+                        reportName: 'Staging E2E Report',
                         useWrapperFileDirectly: true
                     ])
                 }
@@ -128,8 +117,8 @@ pipeline {
 
         stage('Approval') {
             steps {
-                timeout(time: 15, unit: 'MINUTES') {
-                    input message: 'Do you wish to deploy to production?', ok: 'Yes, I am sure!'
+                timeout(time: 10, unit: 'MINUTES') {
+                    input message: 'Deploy to production?', ok: 'Yes, deploy'
                 }
             }
         }
@@ -137,28 +126,21 @@ pipeline {
         stage('Deploy & Test Prod') {
             agent {
                 docker {
-                    image 'mcr.microsoft.com/playwright:v1.39.0-jammy'
+                    image 'mcr.microsoft.com/playwright:v1.54.0-noble'
                     reuseNode true
                     args '-u root'
                 }
             }
-
-            environment {
-                CI_ENVIRONMENT_URL = 'YOUR NETLIFY SITE URL'
-            }
-
             steps {
                 sh '''
-                    node --version
                     npm install netlify-cli
-                    node_modules/.bin/netlify --version
-                    echo "Deploying to production. Site ID: $NETLIFY_SITE_ID"
-                    node_modules/.bin/netlify status
-                    node_modules/.bin/netlify deploy --dir=build --prod
+                    echo "Deploying to production..."
+                    npx netlify deploy --site=$NETLIFY_SITE_ID --auth=$NETLIFY_AUTH_TOKEN --prod --dir=build
+
+                    # Run tests on prod
                     npx playwright test --reporter=html
                 '''
             }
-
             post {
                 always {
                     publishHTML([
@@ -167,8 +149,7 @@ pipeline {
                         keepAll: false,
                         reportDir: 'playwright-report',
                         reportFiles: 'index.html',
-                        reportName: 'Prod E2E',
-                        reportTitles: '',
+                        reportName: 'Production E2E Report',
                         useWrapperFileDirectly: true
                     ])
                 }
