@@ -19,8 +19,8 @@ pipeline {
             }
             steps {
                 sh '''
-                    node --version
-                    npm --version
+                    node -v
+                    npm -v
                     npm ci
                     npm run build
                     ls -la build
@@ -51,7 +51,7 @@ pipeline {
                     }
                 }
 
-                stage('E2E (Local)') {
+                stage('E2E - Local') {
                     agent {
                         docker {
                             image "${PLAYWRIGHT_IMAGE}"
@@ -72,9 +72,6 @@ pipeline {
                     post {
                         always {
                             publishHTML([
-                                allowMissing: false,
-                                alwaysLinkToLastBuild: false,
-                                keepAll: false,
                                 reportDir: 'playwright-report',
                                 reportFiles: 'index.html',
                                 reportName: 'E2E Report - Local'
@@ -85,7 +82,7 @@ pipeline {
             }
         }
 
-        stage('Deploy & Test Staging') {
+        stage('Deploy to Staging & E2E') {
             agent {
                 docker {
                     image "${PLAYWRIGHT_IMAGE}"
@@ -93,34 +90,28 @@ pipeline {
                     args '-u root'
                 }
             }
-
             environment {
                 CI_ENVIRONMENT_URL = ''
             }
-
             steps {
                 sh '''
                     npm install netlify-cli node-jq
                     npm install
                     npx playwright install --with-deps
 
-                    echo "Deploying to staging. Site ID: $NETLIFY_SITE_ID"
-                    npx netlify deploy --auth $NETLIFY_AUTH_TOKEN --site $NETLIFY_SITE_ID --dir=build --json > deploy-output.json
+                    echo "Deploying to staging..."
+                    npx netlify deploy --auth "$NETLIFY_AUTH_TOKEN" --site "$NETLIFY_SITE_ID" --dir=build --json > deploy-output.json
 
                     export CI_ENVIRONMENT_URL=$(npx node-jq -r '.deploy_url' deploy-output.json)
-                    echo "Staging URL: $CI_ENVIRONMENT_URL"
+                    echo "CI_ENVIRONMENT_URL=$CI_ENVIRONMENT_URL"
 
                     sleep 10
                     npx playwright test --reporter=html
                 '''
             }
-
             post {
                 always {
                     publishHTML([
-                        allowMissing: false,
-                        alwaysLinkToLastBuild: false,
-                        keepAll: false,
                         reportDir: 'playwright-report',
                         reportFiles: 'index.html',
                         reportName: 'E2E Report - Staging'
@@ -137,7 +128,7 @@ pipeline {
             }
         }
 
-        stage('Deploy & Test Prod') {
+        stage('Deploy to Production & E2E') {
             agent {
                 docker {
                     image "${PLAYWRIGHT_IMAGE}"
@@ -145,32 +136,26 @@ pipeline {
                     args '-u root'
                 }
             }
-
             environment {
                 CI_ENVIRONMENT_URL = 'https://cheerful-souffle-d0935a.netlify.app'
             }
-
             steps {
                 sh '''
                     npm install netlify-cli
                     npm install
                     npx playwright install --with-deps
 
-                    echo "Deploying to production. Site ID: $NETLIFY_SITE_ID"
-                    npx netlify deploy --auth $NETLIFY_AUTH_TOKEN --site $NETLIFY_SITE_ID --dir=build --prod
+                    echo "Deploying to production..."
+                    npx netlify deploy --auth "$NETLIFY_AUTH_TOKEN" --site "$NETLIFY_SITE_ID" --dir=build --prod
 
-                    echo "Running Playwright tests on: $CI_ENVIRONMENT_URL"
+                    echo "Running E2E tests against $CI_ENVIRONMENT_URL"
                     sleep 10
                     npx playwright test --reporter=html
                 '''
             }
-
             post {
                 always {
                     publishHTML([
-                        allowMissing: false,
-                        alwaysLinkToLastBuild: false,
-                        keepAll: false,
                         reportDir: 'playwright-report',
                         reportFiles: 'index.html',
                         reportName: 'E2E Report - Production'
