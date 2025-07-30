@@ -28,9 +28,9 @@ pipeline {
             }
         }
 
-        stage('Tests') {
+        stage('Test') {
             parallel {
-                stage('Unit tests') {
+                stage('Unit') {
                     agent {
                         docker {
                             image 'node:18-alpine'
@@ -48,7 +48,7 @@ pipeline {
                     }
                 }
 
-                stage('E2E') {
+                stage('Local E2E') {
                     agent {
                         docker {
                             image 'mcr.microsoft.com/playwright:v1.54.0-noble'
@@ -72,8 +72,7 @@ pipeline {
                                 keepAll: false,
                                 reportDir: 'playwright-report',
                                 reportFiles: 'index.html',
-                                reportName: 'Playwright Local',
-                                reportTitles: '',
+                                reportName: 'Local E2E',
                                 useWrapperFileDirectly: true
                             ])
                         }
@@ -95,23 +94,23 @@ pipeline {
                     apk add --no-cache bash curl jq
                     npm install netlify-cli
 
-                    echo "Deploying to Netlify (staging)..."
+                    echo "Deploying to staging..."
                     node_modules/.bin/netlify deploy \
                       --auth=$NETLIFY_AUTH_TOKEN \
                       --site=$NETLIFY_SITE_ID \
                       --dir=build \
                       --json > deploy-output.json
 
-                    STAGING_URL=$(cat deploy-output.json | jq -r '.deploy_url')
-                    echo "STAGING_URL=$STAGING_URL" > staging.env
+                    STAGING_URL=$(jq -r '.deploy_url' deploy-output.json)
+                    echo "Staging URL: $STAGING_URL"
+                    echo "CI_ENVIRONMENT_URL=$STAGING_URL" > staging.env
                 '''
                 script {
-                    def stagingEnv = readFile('staging.env').trim().split('=')
-                    env.CI_ENVIRONMENT_URL = stagingEnv[1]
-                    echo "🔗 Staging URL: ${env.CI_ENVIRONMENT_URL}"
+                    def url = readFile('staging.env').trim().split('=')[1]
+                    env.CI_ENVIRONMENT_URL = url
                 }
                 sh '''
-                    echo "Running Playwright against staging..."
+                    echo "Running tests on staging at $CI_ENVIRONMENT_URL"
                     CI_ENVIRONMENT_URL=$CI_ENVIRONMENT_URL npx playwright test --reporter=html
                 '''
             }
@@ -124,7 +123,6 @@ pipeline {
                         reportDir: 'playwright-report',
                         reportFiles: 'index.html',
                         reportName: 'Staging E2E',
-                        reportTitles: '',
                         useWrapperFileDirectly: true
                     ])
                 }
@@ -134,7 +132,7 @@ pipeline {
         stage('Approval') {
             steps {
                 timeout(time: 15, unit: 'MINUTES') {
-                    input message: 'Deploy to production?', ok: 'Yes, deploy!'
+                    input message: 'Deploy to production?', ok: 'Deploy'
                 }
             }
         }
@@ -147,17 +145,15 @@ pipeline {
                     args '-u root'
                 }
             }
-
             environment {
                 CI_ENVIRONMENT_URL = 'https://cheerful-souffle-d0935a.netlify.app'
             }
-
             steps {
                 sh '''
                     apk add --no-cache bash curl jq
                     npm install netlify-cli
 
-                    echo "Deploying to Netlify (production)..."
+                    echo "Deploying to production..."
                     node_modules/.bin/netlify deploy \
                       --auth=$NETLIFY_AUTH_TOKEN \
                       --site=$NETLIFY_SITE_ID \
@@ -165,14 +161,10 @@ pipeline {
                       --prod \
                       --json > deploy-output.json
 
-                    echo "✅ Production deployed."
-                    cat deploy-output.json | jq .
-
-                    echo "Running Playwright against production..."
+                    echo "Running tests on production at $CI_ENVIRONMENT_URL"
                     CI_ENVIRONMENT_URL=$CI_ENVIRONMENT_URL npx playwright test --reporter=html
                 '''
             }
-
             post {
                 always {
                     publishHTML([
@@ -182,7 +174,6 @@ pipeline {
                         reportDir: 'playwright-report',
                         reportFiles: 'index.html',
                         reportName: 'Prod E2E',
-                        reportTitles: '',
                         useWrapperFileDirectly: true
                     ])
                 }
