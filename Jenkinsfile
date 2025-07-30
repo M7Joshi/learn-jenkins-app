@@ -74,12 +74,10 @@ pipeline {
                             publishHTML([
                                 allowMissing: false,
                                 alwaysLinkToLastBuild: false,
-                                keepAll: false,
+                                keepAll: true,
                                 reportDir: 'playwright-report',
                                 reportFiles: 'index.html',
-                                reportName: 'Local E2E',
-                                reportTitles: '',
-                                useWrapperFileDirectly: true
+                                reportName: 'Local E2E Report'
                             ])
                         }
                     }
@@ -127,12 +125,10 @@ pipeline {
                     publishHTML([
                         allowMissing: false,
                         alwaysLinkToLastBuild: false,
-                        keepAll: false,
+                        keepAll: true,
                         reportDir: 'playwright-report',
                         reportFiles: 'index.html',
-                        reportName: 'Staging E2E',
-                        reportTitles: '',
-                        useWrapperFileDirectly: true
+                        reportName: 'Staging E2E Report'
                     ])
                 }
             }
@@ -198,15 +194,22 @@ pipeline {
                     publishHTML([
                         allowMissing: false,
                         alwaysLinkToLastBuild: false,
-                        keepAll: false,
+                        keepAll: true,
                         reportDir: 'playwright-report',
                         reportFiles: 'index.html',
-                        reportName: 'Prod E2E',
-                        reportTitles: '',
-                        useWrapperFileDirectly: true
+                        reportName: 'Production E2E Report'
                     ])
                 }
             }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Pipeline completed successfully!"
+        }
+        failure {
+            echo "❌ Pipeline failed. Check logs and reports for details."
         }
     }
 }
