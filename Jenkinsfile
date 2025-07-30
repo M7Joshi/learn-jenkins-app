@@ -108,7 +108,7 @@ pipeline {
                     echo "Staging URL: $CI_ENVIRONMENT_URL"
 
                     sleep 10
-                    npx playwright test --project=staging --reporter=html
+                    npx playwright test --reporter=html
                 '''
             }
 
@@ -156,7 +156,7 @@ pipeline {
 
                     echo "Running Playwright tests on: $CI_ENVIRONMENT_URL"
                     sleep 10
-                    npx playwright test --project=production --reporter=html
+                    npx playwright test --reporter=html
                 '''
             }
 
