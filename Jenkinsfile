@@ -12,15 +12,13 @@ pipeline {
         stage('Build') {
             agent {
                 docker {
-                    image 'node:18-alpine'
+                    image 'node:18-bullseye'
                     reuseNode true
                     args '-u root'
                 }
             }
             steps {
                 sh '''
-                    apk add --no-cache bash
-                    ls -la
                     node --version
                     npm --version
                     npm ci
@@ -35,12 +33,11 @@ pipeline {
                 stage('Unit tests') {
                     agent {
                         docker {
-                            image 'node:18-alpine'
+                            image 'node:18-bullseye'
                             reuseNode true
                             args '-u root'
                         }
                     }
-
                     steps {
                         sh '''
                             npm test
@@ -61,7 +58,6 @@ pipeline {
                             args '-u root'
                         }
                     }
-
                     steps {
                         sh '''
                             npm install serve
@@ -70,7 +66,6 @@ pipeline {
                             npx playwright test --reporter=html
                         '''
                     }
-
                     post {
                         always {
                             publishHTML([
