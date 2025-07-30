@@ -63,6 +63,7 @@ pipeline {
                         sh '''
                             npm install
                             npm install serve
+                            npx playwright install --with-deps
                             npx serve -s build &
                             sleep 10
                             npx playwright test --reporter=html
@@ -100,6 +101,8 @@ pipeline {
             steps {
                 sh '''
                     npm install netlify-cli node-jq
+                    npm install
+                    npx playwright install --with-deps
 
                     echo "Deploying to staging. Site ID: $NETLIFY_SITE_ID"
                     npx netlify deploy --auth $NETLIFY_AUTH_TOKEN --site $NETLIFY_SITE_ID --dir=build --json > deploy-output.json
@@ -150,6 +153,8 @@ pipeline {
             steps {
                 sh '''
                     npm install netlify-cli
+                    npm install
+                    npx playwright install --with-deps
 
                     echo "Deploying to production. Site ID: $NETLIFY_SITE_ID"
                     npx netlify deploy --auth $NETLIFY_AUTH_TOKEN --site $NETLIFY_SITE_ID --dir=build --prod
@@ -162,16 +167,3 @@ pipeline {
 
             post {
                 always {
-                    publishHTML([
-                        allowMissing: false,
-                        alwaysLinkToLastBuild: false,
-                        keepAll: false,
-                        reportDir: 'playwright-report',
-                        reportFiles: 'index.html',
-                        reportName: 'E2E Report - Production'
-                    ])
-                }
-            }
-        }
-    }
-}
