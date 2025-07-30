@@ -82,10 +82,10 @@ pipeline {
             }
         }
 
-        stage('Deploy staging') {
+        stage('Deploy & Test Staging') {
             agent {
                 docker {
-                    image 'node:18-alpine'
+                    image 'mcr.microsoft.com/playwright:v1.54.0-noble'
                     reuseNode true
                     args '-u root'
                 }
@@ -102,33 +102,17 @@ pipeline {
                       --dir=build \
                       --json > deploy-output.json
 
-                    echo "✅ Deployment done. JSON written to deploy-output.json."
+                    STAGING_URL=$(cat deploy-output.json | jq -r '.deploy_url')
+                    echo "STAGING_URL=$STAGING_URL" > staging.env
                 '''
                 script {
-                    env.STAGING_URL = sh(
-                        script: "cat deploy-output.json | jq -r '.deploy_url'",
-                        returnStdout: true
-                    ).trim()
-                    echo "STAGING_URL set to: ${env.STAGING_URL}"
-                }
-            }
-        }
-
-        stage('Staging E2E') {
-            agent {
-                docker {
-                    image 'mcr.microsoft.com/playwright:v1.54.0-noble'
-                    reuseNode true
-                    args '-u root'
-                }
-            }
-            steps {
-                script {
-                    echo "Running E2E tests on staging: ${env.STAGING_URL}"
+                    def stagingEnv = readFile('staging.env').trim().split('=')
+                    env.CI_ENVIRONMENT_URL = stagingEnv[1]
+                    echo "🔗 Staging URL: ${env.CI_ENVIRONMENT_URL}"
                 }
                 sh '''
-                    echo "Running Playwright against STAGING..."
-                    CI_ENVIRONMENT_URL=$STAGING_URL npx playwright test --reporter=html
+                    echo "Running Playwright against staging..."
+                    CI_ENVIRONMENT_URL=$CI_ENVIRONMENT_URL npx playwright test --reporter=html
                 '''
             }
             post {
@@ -155,14 +139,19 @@ pipeline {
             }
         }
 
-        stage('Deploy prod') {
+        stage('Deploy & Test Prod') {
             agent {
                 docker {
-                    image 'node:18-alpine'
+                    image 'mcr.microsoft.com/playwright:v1.54.0-noble'
                     reuseNode true
                     args '-u root'
                 }
             }
+
+            environment {
+                CI_ENVIRONMENT_URL = 'https://cheerful-souffle-d0935a.netlify.app'
+            }
+
             steps {
                 sh '''
                     apk add --no-cache bash curl jq
@@ -178,27 +167,12 @@ pipeline {
 
                     echo "✅ Production deployed."
                     cat deploy-output.json | jq .
-                '''
-            }
-        }
 
-        stage('Prod E2E') {
-            agent {
-                docker {
-                    image 'mcr.microsoft.com/playwright:v1.54.0-noble'
-                    reuseNode true
-                    args '-u root'
-                }
-            }
-            environment {
-                CI_ENVIRONMENT_URL = 'https://cheerful-souffle-d0935a.netlify.app'
-            }
-            steps {
-                sh '''
-                    echo "Running Playwright against PRODUCTION..."
-                    npx playwright test --reporter=html
+                    echo "Running Playwright against production..."
+                    CI_ENVIRONMENT_URL=$CI_ENVIRONMENT_URL npx playwright test --reporter=html
                 '''
             }
+
             post {
                 always {
                     publishHTML([
